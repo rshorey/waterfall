@@ -1,4 +1,5 @@
-from django.db import connection, models
+from django.db import connection
+from django.apps.registry import apps
 
 class CascadingUpdate():
     
@@ -7,7 +8,7 @@ class CascadingUpdate():
 
     def get_table_modelnames(self):
         table_modelnames = {}
-        for m in models.get_models():
+        for m in apps.get_models():
             table_modelnames[m._meta.db_table] = m
         return table_modelnames
 
