@@ -1,5 +1,9 @@
 from django.db import connection, models
 
+class DifferentMergeTypeError(Exception):
+    def __str__(self):
+        return repr("Cannot combine foreign keys from different classes")
+
 class CascadingUpdate():
     
     def __init__(self):
@@ -40,8 +44,16 @@ class CascadingUpdate():
                 yield (r, keyname)
 
 
-    def replace_related_keys(self, related_objects, new_key):
+    def replace_related_keys(self, related_objects, obj, new_obj):
+        #make sure the objects are of the same type before doing anything
+        if obj.__class__ != new_obj.__class__:
+            raise DifferetMergeTypeError()
         for related_obj, keyname in related_objects:
-            setattr(related_obj, keyname, new_key)
+            setattr(related_obj, keyname, new_obj.id)
             related_obj.save()
 
+
+    def merge_foreign_keys(self, obj_to_remove, persistent_obj):
+        fk_relations = self.get_fk_list(obj_to_remove)
+        related_objects = self.get_related_objects(obj_to_remove, fk_relations)
+        self.replace_related_keys(related_objects, obj_to_remove, persistent_obj)
