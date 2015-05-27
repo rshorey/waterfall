@@ -1,5 +1,6 @@
 from django.db import connection
 from django.apps.registry import apps
+from django.db.utils import IntegrityError
 
 class CascadingUpdate():
     
@@ -41,13 +42,25 @@ class CascadingUpdate():
                 yield (r, keyname)
 
 
+
+
     def replace_related_keys(self, related_objects, obj, new_obj):
-        #make sure the objects are of the same type before doing anything
         if obj.__class__ != new_obj.__class__:
             raise AssertionError("Cannot merge objects of different classes")
         for related_obj, keyname in related_objects:
-            setattr(related_obj, keyname, new_obj.id)
-            related_obj.save()
+            #get new_obj's related objects of this type
+            related_class = related_obj.__class__
+            related_obj_dict = related_obj.__dict__.copy()
+            for k in list(related_obj_dict.keys()):
+                if k.startswith("_") or k == 'id':
+                    del related_obj_dict[k]
+            related_obj_dict[keyname] = new_obj.id
+            if related_class.objects.filter(**related_obj_dict).count() > 0:
+                related_obj.delete()
+            else:
+                setattr(related_obj, keyname, new_obj.id)
+                related_obj.save()
+
 
 
     def merge_foreign_keys(self, obj_to_remove, persistent_obj):
