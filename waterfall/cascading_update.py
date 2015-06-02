@@ -1,4 +1,4 @@
-from django.db import connection, models
+from django.db import connection, models, transaction
 from django.apps.registry import apps
 from django.db.utils import IntegrityError
 
@@ -32,17 +32,16 @@ class CascadingUpdate():
             raise AssertionError("Cannot merge objects of different classes")
         for related_obj, keyname in related_objects:
             #get new_obj's related objects of this type
-            related_class = related_obj.__class__
-            related_obj_dict = related_obj.__dict__.copy()
-            for k in list(related_obj_dict.keys()):
-                if k.startswith("_") or k == 'id':
-                    del related_obj_dict[k]
-            related_obj_dict[keyname+"_id"] = new_obj.id
-            if related_class.objects.filter(**related_obj_dict).count() > 0:
-                related_obj.delete()
-            else:
+            duplicate = False
+            with transaction.atomic():
                 setattr(related_obj, keyname, new_obj)
-                related_obj.save()
+                try:    
+                    related_obj.save()
+                except IntegrityError:
+                    duplicate = True
+            if duplicate:
+                related_obj.delete()
+
 
     def merge_foreign_keys(self, obj_to_remove, persistent_obj):
         fk_relations = self.get_fk_list(obj_to_remove)
