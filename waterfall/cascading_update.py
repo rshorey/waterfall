@@ -7,8 +7,11 @@ class CascadingUpdate():
     def get_fk_list(self, obj):
         for m in apps.get_models(include_auto_created=True):
             for f in m._meta.get_all_field_names():
+                field = m._meta.get_field(f)
+                if (field.many_to_many or field.one_to_many):
+                    continue
                 try:
-                    relation = m._meta.get_field(f).rel
+                    relation = field.rel
                 except models.fields.FieldDoesNotExist:
                     continue
                 if relation:
